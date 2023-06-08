@@ -13,22 +13,32 @@ class MainViewModel(private val application: Application) : ViewModel() {
 
     private val repository = RepositoryImpl(application)
 
+    private val addHeader = AddHeader(repository)
     private val createLink = CreateLink(repository)
     private val getLinkFromDatabase = GetLinkFromDatabase(repository)
-    private val getLinkFromServer = GetLinkFromServer(repository)
+    private val getLinkFromFirebase = GetLinkFromFirebase(repository)
     private val openLink = OpenLink(repository)
     private val saveLink = SaveLink(repository)
+    private val getLinkFromServer = GetLinkFromServer(repository)
 
     private val coroutine = CoroutineScope(Dispatchers.IO)
 
+
     fun openLinkIfExists(): Boolean {
         var result = false
+        var mainUrl = ERROR
+
         coroutine.launch {
-            val url = generateSafeLink()
-            if (url != ERROR) {
-                val link = Link(url)
+            val linkFromDatabase = PreferenceHelper.getResult(application)
+            if (linkFromDatabase == null) {
+                mainUrl = generateSafeLink()
+                PreferenceHelper.saveResult(application, mainUrl)
+            } else {
+                mainUrl = PreferenceHelper.getResult(application) ?: ERROR
+            }
+            if (checkLink(mainUrl)) {
+                val link = Link(mainUrl)
                 openLink.openLink(link)
-                saveLink.saveLink(link)
                 result = true
             }
         }
@@ -36,19 +46,16 @@ class MainViewModel(private val application: Application) : ViewModel() {
     }
 
     private fun generateSafeLink(): String {
-        var validURL = true
         var link = ""
-
         coroutine.launch {
-            link = getLinkFromServer.getLinkFromServer()
-            validURL = checkLink(link)
+            val linkFromFirebase = getLinkFromFirebase.getLinkFromFirebase()
+            if (checkLink(linkFromFirebase)) {
+                val siteUrl = createLink(linkFromFirebase)
+                val recycledLink = addHeader.addHeader(Link(siteUrl))
+                link = getLinkFromServer.getLinkFromServer(recycledLink)
+            }
         }
-
-        return if (validURL) {
-            createLink(link)
-        } else {
-            ERROR
-        }
+        return link
     }
 
     private fun createLink(baseUrl: String): String {
@@ -62,15 +69,10 @@ class MainViewModel(private val application: Application) : ViewModel() {
     }
 
     private fun checkLink(link: String): Boolean {
-        var result = true
-        coroutine.launch {
-            result = !(link == RepositoryImpl.NO_DOC
-                    && link == RepositoryImpl.ERROR_GETTING_DOC)
-        }
-        return result
+        return (link != ERROR && (link.isNotEmpty() && link.isNotBlank()))
     }
 
     companion object {
-        const val ERROR = "error"
+        const val ERROR = RepositoryImpl.ERROR
     }
 }
