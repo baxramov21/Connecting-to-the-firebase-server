@@ -5,9 +5,10 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.core.content.ContextCompat
 import com.google.firebase.FirebaseApp
-import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
+import com.template.R
 import com.template.data.converter.Mapper
 import com.template.data.db.MainDatabase
 import com.template.data.network.WebsiteTextCallback
@@ -17,7 +18,8 @@ import com.template.domain.Repository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import okhttp3.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
 
 
 class RepositoryImpl(private val application: Application) : Repository {
@@ -30,10 +32,18 @@ class RepositoryImpl(private val application: Application) : Repository {
     }
 
     override suspend fun openLink(link: Link) {
-        val intent = CustomTabsIntent.Builder()
+//        val intent = CustomTabsIntent.Builder()
+//            .build()
+//        intent.intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+//        intent.launchUrl(application, Uri.parse(link.link))
+        val customTabsIntent = CustomTabsIntent.Builder()
+            .setToolbarColor(ContextCompat.getColor(application, R.color.black))
             .build()
-        intent.intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        intent.launchUrl(application, Uri.parse(link.link))
+
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        customTabsIntent.intent.setPackage("com.android.chrome") // Specify the package of the Chrome browser
+        customTabsIntent.launchUrl(application, Uri.parse(link.link))
     }
 
     override suspend fun saveLink(link: Link) {
@@ -57,31 +67,6 @@ class RepositoryImpl(private val application: Application) : Repository {
         Log.d("RepositoryImplementation", link)
         return Link(link)
     }
-
-//    override suspend fun getLinkFromFirebase(): String {
-//        val app = FirebaseApp.initializeApp(application)
-//        val db = FirebaseFirestore.getInstance()
-//        var linkValue = ""
-//        val documentRef = db.collection("database").document("check")
-//        documentRef.get()
-//            .addOnSuccessListener { documentSnapshot ->
-//                Log.d(TAG, "Starting on success listener")
-//                if (documentSnapshot.exists()) {
-//                    linkValue = documentSnapshot.getString("link").toString()
-//                    Log.d(TAG, linkValue)
-//                } else {
-//                    linkValue = ERROR
-//                    Log.d(TAG, "No such document!")
-//                }
-//
-//            }
-//            .addOnFailureListener { exception ->
-//                Log.d(TAG, "Starting on failure listener")
-//                linkValue = ERROR
-//                Log.d(TAG, "Error getting document: $exception")
-//            }
-//        return linkValue
-//    }
 
     override suspend fun getLinkFromFirebase(): String = withContext(Dispatchers.IO) {
         val app = FirebaseApp.initializeApp(application)
