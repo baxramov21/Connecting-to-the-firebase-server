@@ -1,13 +1,14 @@
 package com.template.ui.view_model
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.template.data.main_code.RepositoryImpl
 import com.template.domain.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import java.util.*
+import kotlinx.coroutines.*
+import kotlin.coroutines.suspendCoroutine
 
 class MainViewModel(private val application: Application) : ViewModel() {
 
@@ -16,46 +17,67 @@ class MainViewModel(private val application: Application) : ViewModel() {
     private val addHeader = AddHeader(repository)
     private val createLink = CreateLink(repository)
     private val getLinkFromDatabase = GetLinkFromDatabase(repository)
+    private val saveLink = SaveLink(repository)
     private val getLinkFromFirebase = GetLinkFromFirebase(repository)
     private val openLink = OpenLink(repository)
-    private val saveLink = SaveLink(repository)
     private val getLinkFromServer = GetLinkFromServer(repository)
 
     private val coroutine = CoroutineScope(Dispatchers.IO)
 
 
-    fun openLinkIfExists(): Boolean {
+    suspend fun openLinkIfExists(): Boolean {
         var result = false
-        var mainUrl = ERROR
 
-        coroutine.launch {
-            val linkFromDatabase = PreferenceHelper.getResult(application)
-            if (linkFromDatabase == null) {
-                mainUrl = generateSafeLink()
-                PreferenceHelper.saveResult(application, mainUrl)
-            } else {
-                mainUrl = PreferenceHelper.getResult(application) ?: ERROR
-            }
-            if (checkLink(mainUrl)) {
-                val link = Link(mainUrl)
-                openLink.openLink(link)
-                result = true
-            }
+        val mainUrl = coroutineScope {
+            PreferenceHelper.getResult(application) ?: generateSafeLink()
         }
+
+        if (checkLink(mainUrl)) {
+            val link = Link(mainUrl)
+            openLink.openLink(link)
+            result = true
+            PreferenceHelper.saveResult(application, mainUrl)
+        }
+
+        Log.d(TAG, "$mainUrl is link")
+
         return result
     }
 
-    private fun generateSafeLink(): String {
-        var link = ""
+    private suspend fun getCreatedLink(): String = suspendCoroutine { continuation ->
         coroutine.launch {
             val linkFromFirebase = getLinkFromFirebase.getLinkFromFirebase()
             if (checkLink(linkFromFirebase)) {
-                val siteUrl = createLink(linkFromFirebase)
-                val recycledLink = addHeader.addHeader(Link(siteUrl))
-                link = getLinkFromServer.getLinkFromServer(recycledLink)
+                val recycledLink = addHeader.addHeader(Link(linkFromFirebase))
+                val siteUrl = getLinkFromServer.getLinkFromServer(recycledLink)
+                continuation.resumeWith(Result.success(siteUrl)) // Return the result
+            } else {
+                continuation.resumeWith(Result.success("")) // Return empty string or handle other cases
             }
         }
-        return link
+    }
+
+
+    private suspend fun generateSafeLink(): String {
+        val event = CompletableDeferred<Unit>() // Create an instance of CompletableDeferred
+        var result: String = ""
+        // Start the code execution in the background
+        GlobalScope.launch {
+            result = getCreatedLink()
+            event.complete(Unit)
+        }
+
+        // Wait for the event to be completed
+        event.await()
+
+        // Code execution is complete, continue with the coroutine
+        println("Coroutine continues after code execution")
+
+        // Perform other tasks...
+
+        // Complete the event to release the waiting coroutine
+        event.complete(Unit)
+        return result
     }
 
     private fun createLink(baseUrl: String): String {
@@ -74,5 +96,6 @@ class MainViewModel(private val application: Application) : ViewModel() {
 
     companion object {
         const val ERROR = RepositoryImpl.ERROR
+        private const val TAG = "MainViewModel"
     }
 }

@@ -1,34 +1,41 @@
 {
   "project_info": {
-    "project_number": "948158550109",
-    "firebase_url": "https://test-apk-1-fa3be-default-rtdb.firebaseio.com",
-    "project_id": "test-apk-1-fa3be",
-    "storage_bucket": "test-apk-1-fa3be.appspot.com"
+    "project_number": "484394714388",
+    "project_id": "server-8e342",
+    "storage_bucket": "server-8e342.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:948158550109:android:80c88dd9ceecba95a17db4",
+        "mobilesdk_app_id": "1:484394714388:android:017bbfa06361e8361c2e01",
         "android_client_info": {
           "package_name": "com.template"
         }
       },
       "oauth_client": [
         {
-          "client_id": "948158550109-shsfrg0gaehh21cbcu9029p3s8fcl787.apps.googleusercontent.com",
+          "client_id": "484394714388-r6bvcl0j0uuh14en56a9596dnv7jfq8t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.template",
+            "certificate_hash": "4d034a6bd8c0e1c2598fb83aeb294c548c93c5c7"
+          }
+        },
+        {
+          "client_id": "484394714388-cjdi629vjd7cujfno85ptfgv9afgmi2l.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyAA_ZBaSU9fv68WwCDk8jGjVnE1y6BqFbI"
+          "current_key": "AIzaSyB0zilnOc7_hiH5cqM7cZgVQ0BVZMdBRLQ"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "948158550109-shsfrg0gaehh21cbcu9029p3s8fcl787.apps.googleusercontent.com",
+              "client_id": "484394714388-cjdi629vjd7cujfno85ptfgv9afgmi2l.apps.googleusercontent.com",
               "client_type": 3
             }
           ]
