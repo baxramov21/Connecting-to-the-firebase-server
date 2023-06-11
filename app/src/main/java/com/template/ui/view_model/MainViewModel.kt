@@ -7,7 +7,6 @@ import com.template.data.main_code.RepositoryImpl
 import com.template.domain.*
 import kotlinx.coroutines.*
 import java.util.*
-import kotlinx.coroutines.*
 import kotlin.coroutines.suspendCoroutine
 
 class MainViewModel(private val application: Application) : ViewModel() {
@@ -46,7 +45,8 @@ class MainViewModel(private val application: Application) : ViewModel() {
 
     private suspend fun getCreatedLink(): String = suspendCoroutine { continuation ->
         coroutine.launch {
-            val linkFromFirebase = getLinkFromFirebase.getLinkFromFirebase()
+            val linkFromFirebase =
+                getLinkFromFirebase.getLinkFromFirebase(collectionName, documentName, fieldName)
             if (checkLink(linkFromFirebase)) {
                 val recycledLink = addHeader.addHeader(Link(linkFromFirebase))
                 val siteUrl = getLinkFromServer.getLinkFromServer(recycledLink)
@@ -97,5 +97,9 @@ class MainViewModel(private val application: Application) : ViewModel() {
     companion object {
         const val ERROR = RepositoryImpl.ERROR
         private const val TAG = "MainViewModel"
+
+        private const val collectionName = "database"
+        private const val documentName = "check"
+        private const val fieldName = "link"
     }
 }
