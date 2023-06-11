@@ -20,6 +20,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 
 
 class RepositoryImpl(private val application: Application) : Repository {
@@ -68,7 +69,11 @@ class RepositoryImpl(private val application: Application) : Repository {
         return Link(link)
     }
 
-    override suspend fun getLinkFromFirebase(collectionName: String, documentName: String, fieldName: String): String = withContext(Dispatchers.IO) {
+    override suspend fun getLinkFromFirebase(
+        collectionName: String,
+        documentName: String,
+        fieldName: String
+    ): String = withContext(Dispatchers.IO) {
         val app = FirebaseApp.initializeApp(application)
         val db = FirebaseFirestore.getInstance()
         val documentRef = db.collection(collectionName).document(documentName)
@@ -89,33 +94,52 @@ class RepositoryImpl(private val application: Application) : Repository {
     }
 
     override suspend fun getLinkFromServer(serverLink: String): String {
-        var result = ERROR
+        val client = OkHttpClient()
+        var result: String = ERROR
 
-        val downloader = WebsiteTextDownloader(object : WebsiteTextCallback {
-            override fun onWebsiteTextDownloaded(text: String?) {
-                text?.let {
-                    result = it
-                }
+        val request = Request.Builder()
+            .url(serverLink)
+            .header(
+                "User-Agent",
+                System.getProperty("http.agent")
+            ) // Use the actual User-Agent header
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+
+            val responseCode = response.code
+
+            if (responseCode == 200) {
+                result = response.body.toString()
+
+            } else if (responseCode == 403) {
+                result = ERROR
             }
-        })
-        downloader.downloadWebsiteText(serverLink)
+
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
         return result
     }
 
-    override suspend fun addHeader(link: Link): String = withContext(Dispatchers.IO) {
+    override suspend fun addHeader(link: Link) = withContext(Dispatchers.IO) {
         val client = OkHttpClient()
 
-        val request = System.getProperty("http.agent")?.let {
-            Request.Builder()
-                .url(link.link)
-                .header("User-Agent", it)
-                .build()
+        val request = Request.Builder()
+            .url(link.link)
+            .header(
+                "User-Agent",
+                System.getProperty("http.agent")
+            ) // Use the actual User-Agent header
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            // Handle the response...
+        } catch (e: IOException) {
+            e.printStackTrace()
         }
-
-        val url = request?.url.toString()
-
-        val response = request?.let { client.newCall(it).execute() }
-        return@withContext url
     }
 
     companion object {

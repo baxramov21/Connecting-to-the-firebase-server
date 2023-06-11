@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.google.firebase.FirebaseApp
@@ -42,6 +43,8 @@ class LoadingActivity : AppCompatActivity() {
             }
         } else {
             openActivity(MainActivity::class.java)
+            Toast.makeText(this, "Check your internet connection and try again", Toast.LENGTH_SHORT)
+                .show()
         }
     }
 
