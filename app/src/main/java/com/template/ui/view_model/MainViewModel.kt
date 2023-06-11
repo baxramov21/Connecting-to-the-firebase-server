@@ -39,7 +39,6 @@ class MainViewModel(private val application: Application) : ViewModel() {
         }
 
         Log.d(TAG, "$mainUrl is link")
-
         return result
     }
 
@@ -48,8 +47,8 @@ class MainViewModel(private val application: Application) : ViewModel() {
             val linkFromFirebase =
                 getLinkFromFirebase.getLinkFromFirebase(collectionName, documentName, fieldName)
             if (checkLink(linkFromFirebase)) {
-                val recycledLink = addHeader.addHeader(Link(linkFromFirebase))
-                val siteUrl = getLinkFromServer.getLinkFromServer(recycledLink)
+                val complexLink = createLink(linkFromFirebase)
+                val siteUrl = getLinkFromServer.getLinkFromServer(complexLink)
                 continuation.resumeWith(Result.success(siteUrl)) // Return the result
             } else {
                 continuation.resumeWith(Result.success("")) // Return empty string or handle other cases
