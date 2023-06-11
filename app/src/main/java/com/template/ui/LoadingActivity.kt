@@ -1,8 +1,11 @@
 package com.template.ui
 
+import android.content.Context
 import android.content.Intent
-import androidx.appcompat.app.AppCompatActivity
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.google.firebase.FirebaseApp
 import com.template.R
@@ -28,14 +31,32 @@ class LoadingActivity : AppCompatActivity() {
         setContentView(R.layout.activity_loading)
         FirebaseApp.initializeApp(this)
 
-        var linkExists = false
-        coroutine.launch {
-            linkExists = viewModel.openLinkIfExists()
+        if (isInternetAvailable(this)) {
+            var linkExists = false
+            coroutine.launch {
+                linkExists = viewModel.openLinkIfExists()
+            }
+            if (!linkExists) {
+                // Link doesn't exist
+                openActivity(MainActivity::class.java)
+            }
+        } else {
+            openActivity(MainActivity::class.java)
         }
-        if (!linkExists) {
-            // Link doesn't exist
-            val intent = Intent(this, MainActivity::class.java)
-            startActivity(intent)
-        }
+    }
+
+    private fun isInternetAvailable(context: Context): Boolean {
+        val connectivityManager =
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+        val network = connectivityManager.activeNetwork
+        val networkCapabilities = connectivityManager.getNetworkCapabilities(network)
+
+        return networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    }
+
+    private fun openActivity(clazz: Class<MainActivity>) {
+        val intent = Intent(this, clazz)
+        startActivity(intent)
     }
 }

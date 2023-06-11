@@ -68,15 +68,15 @@ class RepositoryImpl(private val application: Application) : Repository {
         return Link(link)
     }
 
-    override suspend fun getLinkFromFirebase(): String = withContext(Dispatchers.IO) {
+    override suspend fun getLinkFromFirebase(collectionName: String, documentName: String, fieldName: String): String = withContext(Dispatchers.IO) {
         val app = FirebaseApp.initializeApp(application)
         val db = FirebaseFirestore.getInstance()
-        val documentRef = db.collection("database").document("check")
+        val documentRef = db.collection(collectionName).document(documentName)
         var linkValue = ERROR
         try {
             val documentSnapshot = documentRef.get().await()
             if (documentSnapshot.exists()) {
-                linkValue = documentSnapshot.getString("link").toString()
+                linkValue = documentSnapshot.getString(fieldName).toString()
             } else {
                 linkValue = ERROR
                 Log.d(TAG, "No such document!")

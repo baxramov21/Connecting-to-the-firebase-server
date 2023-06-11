@@ -12,9 +12,6 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.messaging.FirebaseMessaging
 import com.template.R
 
-private val NOTIFICATION_PERMISSION_REQUEST = 123
-private val CHANNEL_ID = "my_channel_id"
-
 class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,5 +81,11 @@ class MainActivity : AppCompatActivity() {
 
             }
         }
+    }
+
+    companion object {
+        private const val NOTIFICATION_PERMISSION_REQUEST = 123
+        private const val CHANNEL_ID = "my_channel_id"
+
     }
 }
