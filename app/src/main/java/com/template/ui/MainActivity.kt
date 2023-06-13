@@ -66,14 +66,10 @@ class MainActivity : AppCompatActivity() {
                 val notificationChannel = notificationManager.getNotificationChannel(CHANNEL_ID)
 
                 if (notificationChannel.importance != NotificationManager.IMPORTANCE_NONE) {
-                    // Notification permission granted
-                    // Proceed with displaying notifications or perform other actions
-                    Toast.makeText(this, "Разрешено показывать уведомления", Toast.LENGTH_SHORT)
+                  Toast.makeText(this, "Разрешено показывать уведомления", Toast.LENGTH_SHORT)
                         .show()
                 } else {
-                    // Notification permission denied
-                    // Handle this case or provide the user with information about the importance of notification permission
-                    Toast.makeText(this, "Отклонено показывать уведомления", Toast.LENGTH_SHORT)
+                      Toast.makeText(this, "Отклонено показывать уведомления", Toast.LENGTH_SHORT)
                         .show()
 
                 }
@@ -85,6 +81,10 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val NOTIFICATION_PERMISSION_REQUEST = 123
         private const val CHANNEL_ID = "my_channel_id"
+
+        fun newInstance(context: Context): Intent {
+            return Intent(context, MainActivity::class.java)
+        }
 
     }
 }

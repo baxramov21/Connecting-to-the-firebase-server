@@ -1,7 +1,9 @@
 package com.template.domain
 
+import android.app.Application
+
 class GetLinkFromDatabase(private val repository: Repository) {
-    suspend fun getLinkFromDatabase(): Link? {
-        return repository.getLinkFromDatabase()
+    operator fun invoke(application: Application): String? {
+        return repository.getLinkFromDatabase(application)
     }
 }

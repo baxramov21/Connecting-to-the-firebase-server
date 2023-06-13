@@ -1,72 +1,53 @@
 package com.template.data.main_code
 
 import android.app.Application
-import android.content.Intent
-import android.net.Uri
 import android.util.Log
-import androidx.browser.customtabs.CustomTabsIntent
-import androidx.core.content.ContextCompat
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
-import com.template.R
-import com.template.data.converter.Mapper
-import com.template.data.db.MainDatabase
-import com.template.data.network.WebsiteTextCallback
-import com.template.data.network.WebsiteTextDownloader
+import com.template.data.db.PreferenceHelper
 import com.template.domain.Link
 import com.template.domain.Repository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.io.IOException
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.*
 
 
 class RepositoryImpl(private val application: Application) : Repository {
 
-    private val database = MainDatabase.newInstance(application).getDao()
-    private val converter = Mapper()
+    private val database = PreferenceHelper
 
-    override suspend fun getLinkFromDatabase(): Link? {
-        return converter.mapModelToEntity(database.getLink())
+    override fun getLinkFromDatabase(application: Application): String? {
+        return database.getUrl(application)
     }
 
-    override suspend fun openLink(link: Link) {
-//        val intent = CustomTabsIntent.Builder()
-//            .build()
-//        intent.intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-//        intent.launchUrl(application, Uri.parse(link.link))
-        val customTabsIntent = CustomTabsIntent.Builder()
-            .setToolbarColor(ContextCompat.getColor(application, R.color.black))
-            .build()
-
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        customTabsIntent.intent.setPackage("com.android.chrome") // Specify the package of the Chrome browser
-        customTabsIntent.launchUrl(application, Uri.parse(link.link))
+    override fun saveLink(link: String) {
+        database.saveUrl(application, link)
     }
 
-    override suspend fun saveLink(link: Link) {
-        database.addLink(
-            converter.mapEntityToModel(link)
-        )
-    }
+    override fun createLink(domainFromFirebase: String): Link {
+        val packageId = application.packageName
+        val uuid: UUID = UUID.randomUUID()
+        val userId: String = uuid.toString()
+        val timeZone = TimeZone.getDefault().id
 
-    override suspend fun clearDatabase() {
-        database.clearTable()
-    }
-
-    override fun createLink(
-        baseURL: String,
-        packageName: String,
-        userId: String,
-        timeZone: String
-    ): Link {
-        val link =
-            "$baseURL/?packageid=$packageName&usserid=$userId&getz=$timeZone&getr=utm_source=google-play&utm_medium=organic"
-        Log.d("RepositoryImplementation", link)
-        return Link(link)
+        val url = StringBuilder(domainFromFirebase)
+            .append("/?")
+            .append("packageid=")
+            .append(packageId)
+            .append("&")
+            .append("userid=")
+            .append(userId)
+            .append("&")
+            .append("getz=")
+            .append(timeZone)
+            .append("&")
+            .append("getr=utm_source=google-play&utm_medium=organic")
+        return Link(url.toString())
     }
 
     override suspend fun getLinkFromFirebase(
@@ -74,10 +55,10 @@ class RepositoryImpl(private val application: Application) : Repository {
         documentName: String,
         fieldName: String
     ): String = withContext(Dispatchers.IO) {
-        val app = FirebaseApp.initializeApp(application)
+        FirebaseApp.initializeApp(application)
         val db = FirebaseFirestore.getInstance()
         val documentRef = db.collection(collectionName).document(documentName)
-        var linkValue = ERROR
+        var linkValue: String
         try {
             val documentSnapshot = documentRef.get().await()
             if (documentSnapshot.exists()) {
@@ -94,56 +75,36 @@ class RepositoryImpl(private val application: Application) : Repository {
     }
 
     override suspend fun getLinkFromServer(serverLink: String): String {
-        val client = OkHttpClient()
-        var result: String = ERROR
+        val url = URL(serverLink)
 
-        val request = Request.Builder()
-            .url(serverLink)
-            .header(
-                "User-Agent",
-                System.getProperty("http.agent")
-            ) // Use the actual User-Agent header
-            .build()
+        val connection = withContext(Dispatchers.IO) {
+            url.openConnection()
+        } as HttpURLConnection
 
-        try {
-            val response = client.newCall(request).execute()
+        connection.setRequestProperty("User-Agent", USER_AGENT)
 
-            val responseCode = response.code
-
-            if (responseCode == 200) {
-                result = response.body.toString()
-
-            } else if (responseCode == 403) {
-                result = ERROR
+        return when (connection.responseCode) {
+            HttpURLConnection.HTTP_OK -> {
+                val inputStream = connection.inputStream
+                val reader = BufferedReader(InputStreamReader(inputStream))
+                val response = withContext(Dispatchers.IO) {
+                    reader.readLine()
+                }
+                withContext(Dispatchers.IO) {
+                    reader.close()
+                }
+                response
             }
-
-        } catch (e: IOException) {
-            e.printStackTrace()
-        }
-        return result
-    }
-
-    override suspend fun addHeader(link: Link) = withContext(Dispatchers.IO) {
-        val client = OkHttpClient()
-
-        val request = Request.Builder()
-            .url(link.link)
-            .header(
-                "User-Agent",
-                System.getProperty("http.agent")
-            ) // Use the actual User-Agent header
-            .build()
-
-        try {
-            val response = client.newCall(request).execute()
-            // Handle the response...
-        } catch (e: IOException) {
-            e.printStackTrace()
+            HttpURLConnection.HTTP_FORBIDDEN -> "error"
+            else -> "unknown"
         }
     }
 
     companion object {
         private const val TAG = "RepositoryImpl"
         const val ERROR = "error"
+        private const val USER_AGENT =
+            "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.210 Mobile Safari/537.36"
+
     }
 }

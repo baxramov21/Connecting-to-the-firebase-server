@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">server_v1</string>
+    <string name="check_internet_connection">Check your internet connection and try again</string>
 </resources>

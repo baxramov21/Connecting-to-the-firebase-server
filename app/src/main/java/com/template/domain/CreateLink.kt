@@ -1,7 +1,7 @@
 package com.template.domain
 
 class CreateLink(private val repository: Repository) {
-    fun createLink(baseURL: String, packageName: String, userId: String, timeZone: String): Link {
-        return repository.createLink(baseURL, packageName, userId, timeZone)
+    fun createLink(domainFromFirebase: String): Link {
+        return repository.createLink(domainFromFirebase)
     }
 }
