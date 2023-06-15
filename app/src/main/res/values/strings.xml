@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">server_v1</string>
     <string name="check_internet_connection">Check your internet connection and try again</string>
+    <string name="app_logo">App Logo</string>
+    <string name="no_thanks">No thanks</string>
+    <string name="permission_denied">Отклонено разрешения на показ уведомления</string>
 </resources>

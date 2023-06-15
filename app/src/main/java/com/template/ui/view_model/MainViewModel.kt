@@ -1,5 +1,6 @@
 package com.template.ui.view_model
 
+import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.content.Intent
@@ -8,6 +9,8 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.util.Log
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK
+import androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_LIGHT
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import com.template.R
@@ -26,7 +29,6 @@ class MainViewModel(private val application: Application) : ViewModel() {
     private val getLinkFromServer = GetLinkFromServer(repository)
 
     private val coroutine = CoroutineScope(Dispatchers.IO)
-
 
     suspend fun getLink(): String {
         var result = ERROR
@@ -92,16 +94,16 @@ class MainViewModel(private val application: Application) : ViewModel() {
         return (link != ERROR && (link.isNotEmpty() && link.isNotBlank()))
     }
 
-    fun openLinkInChromeCustomTabs(link: String) {
-        val customTabsIntent = CustomTabsIntent.Builder()
-            .setToolbarColor(ContextCompat.getColor(application, R.color.black))
-            .build()
+    fun openLinkInChromeCustomTabs(link: String, context: Context) {
+        val builder = CustomTabsIntent.Builder()
+        builder.setToolbarColor(ContextCompat.getColor(context, R.color.black))
+        builder.setColorScheme(COLOR_SCHEME_DARK)
 
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
-        customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val customTabsIntent = builder.build()
         customTabsIntent.intent.setPackage("com.android.chrome")
-        customTabsIntent.launchUrl(application, Uri.parse(link))
+        customTabsIntent.launchUrl(context, Uri.parse(link))
     }
+
 
     companion object {
         private const val ERROR = RepositoryImpl.ERROR

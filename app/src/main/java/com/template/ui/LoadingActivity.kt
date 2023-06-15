@@ -42,7 +42,8 @@ class LoadingActivity : AppCompatActivity() {
 
                     if (isUrl(linkExists)) {
 
-                        openLinkInChromeCustomTabs(linkExists)
+                        openLinkInChromeCustomTabs(linkExists, this@LoadingActivity)
+                        finish()
                     } else {
                         startActivity(MainActivity.newInstance(this@LoadingActivity))
                     }
