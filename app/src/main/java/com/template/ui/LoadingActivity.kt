@@ -1,9 +1,5 @@
 package com.template.ui
 
-import android.content.Context
-import android.content.Intent
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -31,35 +27,39 @@ class LoadingActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_loading)
         FirebaseApp.initializeApp(this)
+        openChromeTabs()
+    }
 
-        if (isInternetAvailable(this)) {
-            var linkExists = false
-            coroutine.launch {
-                linkExists = viewModel.openLinkIfExists()
+    private fun openChromeTabs() {
+
+        with(viewModel) {
+
+            if (isInternetAvailAble(this@LoadingActivity)) {
+
+                coroutine.launch {
+
+                    val linkExists = getLink()
+
+                    if (isUrl(linkExists)) {
+
+                        openLinkInChromeCustomTabs(linkExists, this@LoadingActivity)
+                        finish()
+                    } else {
+                        startActivity(MainActivity.newInstance(this@LoadingActivity))
+                    }
+                }
+
+            } else {
+
+                startActivity(MainActivity.newInstance(this@LoadingActivity))
+
+                Toast.makeText(
+                    this@LoadingActivity,
+                    getString(R.string.check_internet_connection),
+                    Toast.LENGTH_SHORT
+                )
+                    .show()
             }
-            if (!linkExists) {
-                // Link doesn't exist
-                openActivity(MainActivity::class.java)
-            }
-        } else {
-            openActivity(MainActivity::class.java)
-            Toast.makeText(this, "Check your internet connection and try again", Toast.LENGTH_SHORT)
-                .show()
         }
-    }
-
-    private fun isInternetAvailable(context: Context): Boolean {
-        val connectivityManager =
-            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-        val network = connectivityManager.activeNetwork
-        val networkCapabilities = connectivityManager.getNetworkCapabilities(network)
-
-        return networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-    }
-
-    private fun openActivity(clazz: Class<MainActivity>) {
-        val intent = Intent(this, clazz)
-        startActivity(intent)
     }
 }
