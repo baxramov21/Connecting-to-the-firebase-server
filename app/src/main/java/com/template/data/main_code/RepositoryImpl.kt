@@ -1,27 +1,27 @@
 package com.template.data.main_code
 
+import android.app.Activity
 import android.app.Application
 import android.util.Log
+import android.webkit.WebSettings
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.FirebaseApp
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.remoteconfig.FirebaseRemoteConfig
+import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings
 import com.template.data.db.PreferenceHelper
-import com.template.domain.Link
-import com.template.domain.Repository
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
-import java.util.*
+import com.template.domain.entity.MyResult
+import com.template.domain.repository.Repository
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import retrofit2.HttpException
+import java.net.URLEncoder
 
 
 class RepositoryImpl(private val application: Application) : Repository {
 
     private val database = PreferenceHelper
 
-    override fun getLinkFromDatabase(application: Application): String? {
+    override fun getLFromD(application: Application): String? {
         return database.getUrl(application)
     }
 
@@ -29,82 +29,101 @@ class RepositoryImpl(private val application: Application) : Repository {
         database.saveUrl(application, link)
     }
 
-    override fun createLink(domainFromFirebase: String): Link {
-        val packageId = application.packageName
-        val uuid: UUID = UUID.randomUUID()
-        val userId: String = uuid.toString()
-        val timeZone = TimeZone.getDefault().id
+    override fun createL(
+        domainFromFirebase: String,
+        packageId: String,
+        userID: String,
+        timeZone: String
+    ): String {
 
-        val url = StringBuilder(domainFromFirebase)
-            .append("/?")
-            .append("packageid=")
-            .append(packageId)
-            .append("&")
-            .append("userid=")
-            .append(userId)
-            .append("&")
-            .append("getz=")
-            .append(timeZone)
-            .append("&")
-            .append("getr=utm_source=google-play&utm_medium=organic")
-        return Link(url.toString())
+        val value =
+            "$domainFromFirebase/?packageid=${URLEncoder.encode(packageId, "UTF-8")}" +
+                    "&userid=$userID" +
+                    "&getz=${URLEncoder.encode(timeZone, "UTF-8")}" +
+                    "&getr=utm_source=google-play&utm_medium=organic"
+
+        Log.d(TAG, "User id is: $userID")
+        Log.d(TAG, "Full link is: $value")
+        return value
     }
 
-    override suspend fun getLinkFromFirebase(
-        collectionName: String,
-        documentName: String,
-        fieldName: String
-    ): String = withContext(Dispatchers.IO) {
+
+    override suspend fun getLFromF(fieldName: String, activity: Activity): MyResult<String> {
         FirebaseApp.initializeApp(application)
-        val db = FirebaseFirestore.getInstance()
-        val documentRef = db.collection(collectionName).document(documentName)
-        var linkValue: String
+        val remoteConfig = FirebaseRemoteConfig.getInstance()
+        val configSettings = FirebaseRemoteConfigSettings.Builder()
+            .setMinimumFetchIntervalInSeconds(3600)
+            .build()
+        remoteConfig.setConfigSettingsAsync(configSettings)
+
         try {
-            val documentSnapshot = documentRef.get().await()
-            if (documentSnapshot.exists()) {
-                linkValue = documentSnapshot.getString(fieldName).toString()
+            val fetchTask = remoteConfig.fetch()
+            Tasks.await(fetchTask)
+
+            return if (fetchTask.isSuccessful) {
+                val activateTask = remoteConfig.activate()
+                Tasks.await(activateTask)
+                val checkLink = remoteConfig.getString("check_link")
+                MyResult.Success(checkLink)
             } else {
-                linkValue = ERROR
-                Log.d(TAG, "No such document!")
+                Log.e(TAG, "No value in firebase available")
+                MyResult.NoValueError("Fetch failed")
             }
-        } catch (e: Exception) {
-            linkValue = ERROR
-            Log.d(TAG, "Error getting document: $e")
-        }
-        return@withContext linkValue
-    }
-
-    override suspend fun getLinkFromServer(serverLink: String): String {
-        val url = URL(serverLink)
-
-        val connection = withContext(Dispatchers.IO) {
-            url.openConnection()
-        } as HttpURLConnection
-
-        connection.setRequestProperty("User-Agent", USER_AGENT)
-
-        return when (connection.responseCode) {
-            HttpURLConnection.HTTP_OK -> {
-                val inputStream = connection.inputStream
-                val reader = BufferedReader(InputStreamReader(inputStream))
-                val response = withContext(Dispatchers.IO) {
-                    reader.readLine()
-                }
-                withContext(Dispatchers.IO) {
-                    reader.close()
-                }
-                response
-            }
-            HttpURLConnection.HTTP_FORBIDDEN -> "error"
-            else -> "unknown"
+        } catch (exception: Exception) {
+            Log.e(TAG, "${exception.message}")
+            return MyResult.NoValueError(exception.message ?: "Unknown Error")
         }
     }
+
+    override suspend fun getLFromS(urlSL: String): MyResult<String> {
+        val client = OkHttpClient()
+
+        val userAgent = getUserAgent()
+
+        val request = buildOkHttpRequest(urlSL, userAgent)
+
+        Log.d(TAG, "$userAgent is user agent")
+        if (request == null) {
+            return MyResult.BadResponseError("Error Response: Access Forbidden")
+        }
+        val response = client.newCall(request).execute()
+        val statusCode = response.code
+
+        return if (statusCode == 200) {
+            val textContent = response.body?.string()
+            Log.d(TAG, "Server response: $textContent")
+            MyResult.Success(textContent ?: ERROR)
+        } else {
+            Log.d(TAG, "Error Response: Access Forbidden")
+            MyResult.BadResponseError(response.message ?: ERROR)
+        }
+    }
+
+    private fun buildOkHttpRequest(urlSL: String, userAgent: String): Request? {
+        return try {
+            Request.Builder()
+                .url(urlSL)
+                .addHeader(
+                    "User-Agent",
+                    userAgent
+                )
+                .build()
+        } catch (e: HttpException) {
+            Log.e(TAG, "${e.message}")
+            return null
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "${e.message}")
+            return null
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, "${e.message}")
+            return null
+        }
+    }
+
+    private fun getUserAgent(): String = WebSettings.getDefaultUserAgent(application)
 
     companion object {
         private const val TAG = "RepositoryImpl"
         const val ERROR = "error"
-        private const val USER_AGENT =
-            "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.210 Mobile Safari/537.36"
-
     }
 }

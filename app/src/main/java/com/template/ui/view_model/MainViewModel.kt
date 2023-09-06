@@ -3,41 +3,36 @@ package com.template.ui.view_model
 import android.app.Activity
 import android.app.Application
 import android.content.Context
-import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.net.Uri
 import android.util.Log
-import androidx.browser.customtabs.CustomTabsIntent
-import androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_DARK
-import androidx.browser.customtabs.CustomTabsIntent.COLOR_SCHEME_LIGHT
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
-import com.template.R
 import com.template.data.main_code.RepositoryImpl
-import com.template.domain.*
+import com.template.domain.entity.MyResult
+import com.template.domain.usecase.*
 import kotlinx.coroutines.*
+import java.util.*
 import kotlin.coroutines.suspendCoroutine
 
 class MainViewModel(private val application: Application) : ViewModel() {
 
     private val repository = RepositoryImpl(application)
-    private val createLink = CreateLink(repository)
-    private val getLinkFromDatabase = GetLinkFromDatabase(repository)
-    private val saveLink = SaveLink(repository)
-    private val getLinkFromFirebase = GetLinkFromFirebase(repository)
-    private val getLinkFromServer = GetLinkFromServer(repository)
+    private val createLink = CreateL(repository)
+    private val getLinkFromDatabase = GetLFromD(repository)
+    private val saveLink = SaveL(repository)
+    private val getLinkFromFirebase = GetLFromF(repository)
+    private val getLinkFromServer = GetLFromS(repository)
 
     private val coroutine = CoroutineScope(Dispatchers.IO)
 
-    suspend fun getLink(): String {
+    suspend fun getLink(activity: Activity, userID: String): String {
         var result = ERROR
 
         val mainUrl = coroutineScope {
-            getLinkFromDatabase(application) ?: generateSafeLink()
+            getLinkFromDatabase(application) ?: generateSafeLink(activity, userID)
         }
 
-        if (checkLink(mainUrl)) {
+        if (checkServerResponse(mainUrl)) {
             result = mainUrl
             saveLink(mainUrl)
         }
@@ -46,32 +41,47 @@ class MainViewModel(private val application: Application) : ViewModel() {
         return result
     }
 
-    private suspend fun getConstructedLink(): String = suspendCoroutine { continuation ->
-        coroutine.launch {
-            val domainFromFirebase =
-                getLinkFromFirebase.getLinkFromFirebase(collectionName, documentName, fieldName)
-            if (checkLink(domainFromFirebase)) {
-                val complexLink = createLink.createLink(domainFromFirebase)
-                val siteUrl = getLinkFromServer.getLinkFromServer(complexLink.link)
-                continuation.resumeWith(Result.success(siteUrl))
-            } else {
-                continuation.resumeWith(Result.success(""))
-            }
-        }
-    }
 
-
-    private suspend fun generateSafeLink(): String {
+    private suspend fun generateSafeLink(activity: Activity, userID: String): String {
         val event = CompletableDeferred<Unit>()
-        var result = ""
+        var result = ERROR
         GlobalScope.launch {
-            result = getConstructedLink()
+            result = getConstructedLink(activity, userID)
             event.complete(Unit)
         }
         event.await()
         event.complete(Unit)
         return result
     }
+
+    private suspend fun getConstructedLink(activity: Activity, userID: String): String =
+        suspendCoroutine { continuation ->
+            coroutine.launch {
+                val domainFromFirebase = getLinkFromFirebase.getLinkFromFirebase(
+                    fieldName,
+                    activity
+                )
+
+                if (checkL(domainFromFirebase)) {
+                    val packageId = application.packageName
+                    val timeZone = TimeZone.getDefault().id
+                    val complexLink =
+                        createLink.createLink(
+                            fetchLFromResultObject(domainFromFirebase),
+                            packageId,
+                            userID,
+                            timeZone
+                        )
+                    val siteUrl = fetchLFromResultObject(
+                        getLinkFromServer
+                            .getLinkFromServer(complexLink)
+                    )
+                    continuation.resumeWith(Result.success(siteUrl))
+                } else {
+                    continuation.resumeWith(Result.success(ERROR))
+                }
+            }
+        }
 
     fun isInternetAvailAble(context: Context): Boolean {
         val connectivityManager =
@@ -90,26 +100,29 @@ class MainViewModel(private val application: Application) : ViewModel() {
         return pattern.matches(string)
     }
 
-    private fun checkLink(link: String): Boolean {
-        return (link != ERROR && (link.isNotEmpty() && link.isNotBlank()))
+    private fun checkL(result: MyResult<String>): Boolean {
+        return when (result) {
+            is MyResult.Success -> true
+            else -> false
+        }
     }
 
-    fun openLinkInChromeCustomTabs(link: String, context: Context) {
-        val builder = CustomTabsIntent.Builder()
-        builder.setToolbarColor(ContextCompat.getColor(context, R.color.black))
-        builder.setColorScheme(COLOR_SCHEME_DARK)
+    private fun fetchLFromResultObject(result: MyResult<String>): String {
+        return when (result) {
+            is MyResult.Success -> result.data
+            is MyResult.BadResponseError -> ERROR
+            is MyResult.NoValueError -> ERROR
+        }
+    }
 
-        val customTabsIntent = builder.build()
-        customTabsIntent.intent.setPackage("com.android.chrome")
-        customTabsIntent.launchUrl(context, Uri.parse(link))
+    private fun checkServerResponse(l: String): Boolean {
+        return l != ERROR
     }
 
 
     companion object {
         private const val ERROR = RepositoryImpl.ERROR
         private const val TAG = "MainViewModel"
-        private const val collectionName = "database"
-        private const val documentName = "check"
-        private const val fieldName = "link"
+        private const val fieldName = "check_link"
     }
 }
