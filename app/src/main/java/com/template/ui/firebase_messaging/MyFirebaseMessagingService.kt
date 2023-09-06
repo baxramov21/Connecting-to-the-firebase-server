@@ -11,6 +11,7 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.template.R
@@ -18,6 +19,10 @@ import com.template.ui.MainActivity
 import kotlin.random.Random
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
+
+    init {
+        FirebaseApp.initializeApp(this)
+    }
 
     override fun onMessageReceived(message: RemoteMessage) {
 
